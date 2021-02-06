@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="Checkerboard">
+        <attr name="xAxisColor" format="color|reference" />
+        <attr name="yAxisColor" format="color|reference" />
+        <attr name="secondaryXAxisColor" format="color|reference" />
+        <attr name="secondaryYAxisColor" format="color|reference" />
+        <attr name="tertiaryXAxisColor" format="color|reference" />
+        <attr name="tertiaryYAxisColor" format="color|reference" />
+
+        <attr name="xAxisThickness" format="dimension|reference" />
+        <attr name="yAxisThickness" format="dimension|reference" />
+        <attr name="secondaryXAxisThickness" format="dimension|reference" />
+        <attr name="secondaryYAxisThickness" format="dimension|reference" />
+        <attr name="tertiaryXAxisThickness" format="dimension|reference" />
+        <attr name="tertiaryYAxisThickness" format="dimension|reference" />
+
+        <attr name="showSecondaryXAxis" format="boolean|reference" />
+        <attr name="showTertiaryXAxis" format="boolean|reference" />
+        <attr name="showSecondaryYAxis" format="boolean|reference" />
+        <attr name="showTertiaryYAxis" format="boolean|reference" />
+        <attr name="showXAxis" format="boolean|reference" />
+        <attr name="showYAxis" format="boolean|reference" />
+
+        <attr name="canvasBackgroundColor" format="color|reference" />
+    </declare-styleable>
+
+    <declare-styleable name="CheckerBoardScaleView">
+        <attr name="android:textSize" />
+        <attr name="android:textColor" />
+        <attr name="lineThickness" format="dimension|reference" />
+        <attr name="lineColor" format="color|reference" />
+        <attr name="android:gravity" />
+        <attr name="lineTopPadding" format="dimension|reference" />
+    </declare-styleable>
+</resources>
