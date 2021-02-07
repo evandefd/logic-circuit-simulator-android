@@ -1,4 +1,4 @@
-package com.evandefd.logiccircuitsimulator.view
+package com.evandefd.logiccircuitsimulator.view.checkerboard
 
 import android.content.Context
 import android.graphics.*
@@ -6,9 +6,10 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import com.evandefd.logiccircuitsimulator.R
+import com.evandefd.logiccircuitsimulator.view.millimeter2pxWithXdpi
 import kotlin.math.roundToInt
 
-class CheckerBoardScaleView @JvmOverloads constructor(
+class LogicCircuitBoardScaleView @JvmOverloads constructor(
     context: Context,
     attributeSet: AttributeSet? = null,
     defStyleAttr: Int = 0
@@ -67,10 +68,10 @@ class CheckerBoardScaleView @JvmOverloads constructor(
     private var intervalPixel: Float = 0f
     private var multiplier: Float = 0f
 
-    fun updateValue(checkerboard: Checkerboard) {
-        intervalMillimeter = checkerboard.getProperIntervalMillimeter(intervalPriority)
-        intervalPixel = checkerboard.getProperIntervalPixel(intervalPriority)
-        multiplier = checkerboard.multiplier
+    fun updateValue(logicCircuitBoard: LogicCircuitBoard) {
+        intervalMillimeter = logicCircuitBoard.getProperIntervalMillimeter(intervalPriority)
+        intervalPixel = context.millimeter2pxWithXdpi(intervalMillimeter)
+        multiplier = logicCircuitBoard.multiplier
 
         postInvalidate()
     }

@@ -1,10 +1,8 @@
-package com.evandefd.logiccircuitsimulator.view
+package com.evandefd.logiccircuitsimulator.view.checkerboard
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
+import android.graphics.*
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
@@ -15,13 +13,17 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.annotation.ColorInt
 import com.evandefd.logiccircuitsimulator.R
+import com.evandefd.logiccircuitsimulator.view.component.LogicCircuitComponent
+import com.evandefd.logiccircuitsimulator.view.component.LogicCircuitWire
+import com.evandefd.logiccircuitsimulator.view.millimeter2pxWithXdpi
+import com.evandefd.logiccircuitsimulator.view.millimeter2pxWithYdpi
 import java.util.*
 import kotlin.math.ceil
 import kotlin.math.pow
-
+import kotlin.math.roundToInt
 
 @SuppressLint("ClickableViewAccessibility")
-class Checkerboard @JvmOverloads constructor(
+class LogicCircuitBoard @JvmOverloads constructor(
     context: Context,
     attributeSet: AttributeSet? = null,
     defStyleAttr: Int = 0
@@ -38,12 +40,12 @@ class Checkerboard @JvmOverloads constructor(
         const val STRATEGY_MAX_2 = 2
     }
 
-    private val checkerboard = this
-    var checkerBoardScaleView: CheckerBoardScaleView? = null
+    private val logicCircuitBoard = this
+    var logicCircuitBoardScaleView: LogicCircuitBoardScaleView? = null
         set(value) {
             field = value
-            checkerBoardScaleView?.maxIntervalPixel =
-                millimeter2px(maxShowingIntervalMillimeter, context.resources.displayMetrics.xdpi)
+            logicCircuitBoardScaleView?.maxIntervalPixel =
+                context.millimeter2pxWithXdpi(maxShowingIntervalMillimeter)
         }
     var onCheckerBoardChangedListener: OnCheckerBoardChangedListener? = null
 
@@ -51,10 +53,13 @@ class Checkerboard @JvmOverloads constructor(
     private var oldY = 0f
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
 
+    val logicCircuitComponents = mutableListOf<LogicCircuitComponent>()
+    val logicCircuitWires = mutableListOf<LogicCircuitWire>()
+
     private val scaleGestureDetector =
         ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                drawCheckerBoardThread?.let {
+                drawingThread?.let {
                     it.multiplier *= detector.scaleFactor
                     if (it.multiplier > maxMultiplier) it.multiplier = maxMultiplier
                     if (it.multiplier < minMultiplier) it.multiplier = minMultiplier
@@ -72,7 +77,7 @@ class Checkerboard @JvmOverloads constructor(
             }
         }
 
-    private var drawCheckerBoardThread: DrawCheckerBoardThread? = null
+    private var drawingThread: DrawingThread? = null
     private val xAxisPaint = Paint().apply {
         color = Color.BLACK
         strokeWidth = 3f
@@ -176,8 +181,8 @@ class Checkerboard @JvmOverloads constructor(
 
     var maxShowingIntervalMillimeter = 20f
         set(value) {
-            checkerBoardScaleView?.maxIntervalPixel =
-                millimeter2px(value, context.resources.displayMetrics.xdpi)
+            logicCircuitBoardScaleView?.maxIntervalPixel =
+                context.millimeter2pxWithXdpi(value)
             field = value
         }
     var minShowingIntervalMillimeter = 1f
@@ -195,9 +200,9 @@ class Checkerboard @JvmOverloads constructor(
     var minMultiplier = 0.075f
 
     var multiplier: Float
-        get() = drawCheckerBoardThread?.multiplier ?: 1f
+        get() = drawingThread?.multiplier ?: 1f
         set(value) {
-            drawCheckerBoardThread?.multiplier = value
+            drawingThread?.multiplier = value
         }
 
     private var _currentSecondaryInterval: Float? = null
@@ -262,7 +267,7 @@ class Checkerboard @JvmOverloads constructor(
                 event.findPointerIndex(activePointerId).let { pointerIndex ->
                     if (pointerIndex != MotionEvent.INVALID_POINTER_ID) {
                         val (x, y) = event.getX(pointerIndex) to event.getY(pointerIndex)
-                        drawCheckerBoardThread?.let {
+                        drawingThread?.let {
                             it.offsetPixelX += x - oldX
                             it.offsetPixelY += y - oldY
                         }
@@ -295,11 +300,11 @@ class Checkerboard @JvmOverloads constructor(
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        if (drawCheckerBoardThread == null)
+        if (drawingThread == null)
             with(context.resources.displayMetrics) {
-                drawCheckerBoardThread = DrawCheckerBoardThread(xdpi, ydpi)
+                drawingThread = DrawingThread()
             }
-        drawCheckerBoardThread?.start()
+        drawingThread?.start()
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -307,12 +312,10 @@ class Checkerboard @JvmOverloads constructor(
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
-        drawCheckerBoardThread = null
+        drawingThread = null
     }
 
-    inner class DrawCheckerBoardThread(
-        private val xDensity: Float = 160f,
-        private val yDensity: Float = 160f,
+    inner class DrawingThread(
         var multiplier: Float = 1f,
         var offsetPixelX: Float = 0f,
         var offsetPixelY: Float = 0f
@@ -321,18 +324,15 @@ class Checkerboard @JvmOverloads constructor(
         var beforeOffsetPixelX: Float? = null
         var beforeOffsetPixelY: Float? = null
 
-        var drawingChecks = 0
-
         private var originPointX = (width / 2).toFloat()
         var originPointY = (height / 2).toFloat()
 
         override fun run() {
-            while (drawCheckerBoardThread != null) {
+            while (drawingThread != null) {
                 if (multiplier != beforeMultiplier ||
                     offsetPixelX != beforeOffsetPixelX ||
                     offsetPixelY != beforeOffsetPixelY
                 ) {
-                    drawingChecks = 0
                     beforeMultiplier = multiplier
                     beforeOffsetPixelX = offsetPixelX
                     beforeOffsetPixelY = offsetPixelY
@@ -351,7 +351,6 @@ class Checkerboard @JvmOverloads constructor(
                     val newIntervals = intervals.filter {
                         it * multiplier in minShowingIntervalMillimeter..maxShowingIntervalMillimeter
                     }.toMutableList()
-
                     if (newIntervals.isEmpty()) {
                         if (intervals.last() * multiplier > maxShowingIntervalMillimeter) newIntervals.add(
                             intervals.last()
@@ -360,7 +359,6 @@ class Checkerboard @JvmOverloads constructor(
                             intervals.first()
                         )
                     }
-
                     if (newIntervals.isNotEmpty()) {
                         when (showingIntervalStrategy) {
                             STRATEGY_MIN_MAX -> {
@@ -405,8 +403,10 @@ class Checkerboard @JvmOverloads constructor(
 
                     drawAxis(canvas)
 
+                    drawComponents(canvas)
+
                     holder.unlockCanvasAndPost(canvas)
-                    checkerBoardScaleView?.updateValue(checkerboard)
+                    logicCircuitBoardScaleView?.updateValue(logicCircuitBoard)
                     Handler(Looper.getMainLooper()).post(Runnable { // do UI work
                         onCheckerBoardChangedListener?.onCanvasChanged(
                             multiplier,
@@ -426,8 +426,8 @@ class Checkerboard @JvmOverloads constructor(
             showX: Boolean,
             showY: Boolean
         ) {
-            val intervalXPixel = millimeter2px(intervalMillimeter, xDensity)
-            val intervalYPixel = millimeter2px(intervalMillimeter, yDensity)
+            val intervalXPixel = context.millimeter2pxWithXdpi(intervalMillimeter)
+            val intervalYPixel = context.millimeter2pxWithYdpi(intervalMillimeter)
             if (showX) drawCheckRightX(intervalXPixel * multiplier, canvas, paintX)
             if (showX) drawCheckLeftX(intervalXPixel * multiplier, canvas, paintX)
             if (showY) drawCheckBottomY(intervalYPixel * multiplier, canvas, paintY)
@@ -538,6 +538,42 @@ class Checkerboard @JvmOverloads constructor(
                 )
         }
 
+        private fun drawComponents(canvas: Canvas) {
+            logicCircuitComponents.forEach {
+                val width = context.millimeter2pxWithXdpi(it.actualWidth)
+                val height = context.millimeter2pxWithYdpi(it.actualHeight)
+
+                val left =
+                    originPointX + context.millimeter2pxWithXdpi(it.actualPositionX) * multiplier
+                val top =
+                    originPointY + context.millimeter2pxWithYdpi(it.actualPositionY) * multiplier
+                val right = left + width * multiplier
+                val bottom = top + height * multiplier
+
+                val bitmap = Bitmap.createBitmap(
+                    width.roundToInt(),
+                    height.roundToInt(),
+                    Bitmap.Config.ARGB_8888
+                )
+                Canvas(bitmap).apply {
+                    it.image.setBounds(0, 0, width.toInt(), height.toInt())
+                    it.image.draw(this)
+                }
+
+                canvas.drawBitmap(
+                    bitmap,
+                    null,
+                    RectF(left, top, right, bottom),
+                    null
+                )
+
+            }
+        }
+
+        private fun drawLogicCircuitWire() {
+
+        }
+
         private fun getRoundInterval(intervalBase: Float, value: Float): Float {
             return intervalBase * ceil(value / intervalBase)
         }
@@ -559,27 +595,15 @@ class Checkerboard @JvmOverloads constructor(
         }
     }
 
-    fun millimeter2px(millimeter: Float, dpi: Float): Float {
-        val mm2px = dpi / 25.4f * millimeter
-        return if (mm2px < 1f) 1f else mm2px
-    }
-
-    fun getProperIntervalMillimeter(priority: Int = CheckerBoardScaleView.PRIORITY_SECONDARY): Float {
+    fun getProperIntervalMillimeter(priority: Int = LogicCircuitBoardScaleView.PRIORITY_SECONDARY): Float {
         return when (priority) {
-            CheckerBoardScaleView.PRIORITY_SECONDARY -> {
+            LogicCircuitBoardScaleView.PRIORITY_SECONDARY -> {
                 currentSecondaryInterval ?: currentTertiaryInterval ?: 0f
             }
-            CheckerBoardScaleView.PRIORITY_TERTIARY -> {
+            LogicCircuitBoardScaleView.PRIORITY_TERTIARY -> {
                 currentTertiaryInterval ?: currentSecondaryInterval ?: 0f
             }
             else -> throw IllegalStateException("Not a priority integer value.")
         }
-    }
-
-    fun getProperIntervalPixel(priority: Int = CheckerBoardScaleView.PRIORITY_SECONDARY): Float {
-        return millimeter2px(
-            getProperIntervalMillimeter(priority),
-            context.resources.displayMetrics.xdpi
-        )
     }
 }
